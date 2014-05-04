@@ -8,6 +8,7 @@ Author URI: http://eek.ro/
 Description: This plugin will let you preview url shares just like on facebook.
 */
 
+require_once 'src/ajax-calls.php';
 
 
 function eek_fb_link_preview_activate() {
@@ -27,12 +28,23 @@ function eek_fb_link_preview_activate() {
 }
 register_activation_hook( __FILE__, 'eek_fb_link_preview_activate' );
 
-function eek_get_content_from_url( $url = '' ){
+
+//Enqueue Script
+function eek_enqueue_fblksc() {
+	if (!is_admin()) {
+		  wp_enqueue_script( 'eek-fb-link-preview', plugins_url( 'wp-facebook-link-preview/js/function.js' ), array('jquery' ), '1', true );
+	}
+}
+
+add_action('wp_enqueue_scripts', 'eek_enqueue_fblksc', 999);
+	
+	
+function eek_get_content_from_url( $url ){
 	global $wpdb;
 	
-	if( empty( $url ) ){ $url = $_POST['url']; }
-	
 	if( !filter_var( $url, FILTER_VALIDATE_URL ) ){ return json_encode( array( 'status' => 'Invalid URL' ) ); }
+	
+	$description = '';
 		
 	$html = file_get_contents( $url );
 	$dom = new domDocument;
@@ -68,6 +80,15 @@ function eek_get_content_from_url( $url = '' ){
 			$description = $content;	
 		}
 		
+	}
+	
+	if( empty( $description ) ){
+		//Maybe Replace it with something better?
+		require_once 'src/contentextractor.php';
+
+		$extractor = new ContentExtractor();
+		$content = $extractor->extract($html); 
+		$description = substr( $content, 0, 256 );	
 	}
 	
 	//Get the Title
